@@ -3,16 +3,16 @@ package main
 import (
 	"TODO/internal/config"
 	"TODO/internal/dao"
+	"TODO/internal/pool"
 	"TODO/internal/service"
 	"TODO/internal/view"
 	"context"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
-
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 func main() {
@@ -28,9 +28,13 @@ func main() {
 
 	dbPool := dao.GetPool()
 
-	userService, taskService := initServices(dbPool)
+	wp := pool.NewWorkerPool(2)
+
+	userService, taskService := initServices(dbPool, wp)
 
 	view.RunInteractiveMode(ctx, taskService, userService)
+
+	log.Println("Система завершила работу")
 }
 
 func initDatabase(cfg *config.Config) {
@@ -43,14 +47,12 @@ func initDatabase(cfg *config.Config) {
 	log.Println("Подключение к базе данных успешно выполнено.")
 }
 
-// Инициализация сервисов
-func initServices(dbPool *pgxpool.Pool) (*service.UserService, *service.TaskService) {
-	userService := service.NewUserService(dbPool)
-	taskService := service.NewTaskService(dbPool)
+func initServices(dbPool *pgxpool.Pool, wp *pool.WorkerPool) (*service.UserService, *service.TaskService) {
+	userService := service.NewUserService(dbPool, wp)
+	taskService := service.NewTaskService(dbPool, wp)
 	return userService, taskService
 }
 
-// Обработка сигналов завершения работы
 func gracefulShutdown(cancelFunc context.CancelFunc) {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
