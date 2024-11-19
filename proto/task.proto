@@ -1,0 +1,245 @@
+syntax = "proto3";
+
+package api.v1;
+
+option go_package = "internal/api/v1";
+
+import "google/api/field_behavior.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "validate/validate.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "TODO Management API";
+    version: "1.0.0";
+    description: "API для управления пользователями и задачами.";
+  };
+  host: "localhost:7000";
+  schemes: HTTP;
+  consumes: "application/json";
+  produces: "application/json";
+  security_definitions: {
+    security: {
+      key: "api-token";
+      value: {
+        in: IN_HEADER;
+        type: TYPE_API_KEY;
+        name: "x-api-token";
+        description: "Авторизационный токен";
+      }
+    };
+  };
+};
+
+// APIService для управления пользователями и задачами
+service APIService {
+
+  // ------------- Users -------------
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {
+    option (google.api.http) = {
+      post: "/users"
+      body: "*"
+    };
+  }
+
+  rpc GetUser(GetUserRequest) returns (GetUserResponse) {
+    option (google.api.http) = {
+      get: "/users/{user_id}"
+    };
+  }
+
+  rpc GetAllUsers(google.protobuf.Empty) returns (GetAllUsersResponse) {
+    option (google.api.http) = {
+      get: "/users"
+    };
+  }
+
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse) {
+    option (google.api.http) = {
+      put: "/users/{user_id}"
+      body: "*"
+    };
+  }
+
+  rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/users/{user_id}"
+    };
+  }
+
+  // ------------- Tasks -------------
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse) {
+    option (google.api.http) = {
+      post: "/tasks"
+      body: "*"
+    };
+  }
+
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {
+    option (google.api.http) = {
+      get: "/tasks/{task_id}"
+    };
+  }
+
+  rpc GetAllTasks(google.protobuf.Empty) returns (GetAllTasksResponse) {
+    option (google.api.http) = {
+      get: "/tasks"
+    };
+  }
+
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse) {
+    option (google.api.http) = {
+      put: "/tasks/{task_id}"
+      body: "*"
+    };
+  }
+
+  rpc DeleteTask(DeleteTaskRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/tasks/{task_id}"
+    };
+  }
+}
+
+// ------------------- Сообщения -------------------
+
+// User Messages
+message CreateUserRequest {
+  string username = 1 [
+    (validate.rules).string.min_len = 1,
+    (google.api.field_behavior) = REQUIRED
+  ];
+}
+
+message CreateUserResponse {
+  int64 user_id = 1; // Изменено на int64
+  string message = 2; // Сообщение об успешном создании пользователя
+}
+
+message GetUserRequest {
+  int64 user_id = 1 [
+    (validate.rules).int64.gt = 0,
+    (google.api.field_behavior) = REQUIRED
+  ]; // Изменено на int64
+}
+
+message GetUserResponse {
+  int64 user_id = 1; // Изменено на int64
+  string username = 2;
+  string created_at = 3;
+}
+
+message GetAllUsersResponse {
+  repeated User users = 1;
+}
+
+message User {
+  int64 user_id = 1; // Изменено на int64
+  string username = 2;
+  string created_at = 3;
+}
+
+message UpdateUserRequest {
+  int64 user_id = 1 [
+    (validate.rules).int64.gt = 0,
+    (google.api.field_behavior) = REQUIRED
+  ]; // Изменено на int64
+  string username = 2 [
+    (validate.rules).string.min_len = 1,
+    (google.api.field_behavior) = REQUIRED
+  ];
+}
+
+message UpdateUserResponse {
+  string message = 1;  // Сообщение о успешном обновлении пользователя
+}
+
+message DeleteUserRequest {
+  int64 user_id = 1 [
+    (validate.rules).int64.gt = 0,
+    (google.api.field_behavior) = REQUIRED
+  ]; // Изменено на int64
+}
+
+// Task Messages
+message CreateTaskRequest {
+  int64 user_id = 1 [
+    (validate.rules).int64.gt = 0,
+    (google.api.field_behavior) = REQUIRED
+  ]; // Изменено на int64
+  string title = 2 [
+    (validate.rules).string.min_len = 1,
+    (google.api.field_behavior) = REQUIRED
+  ];
+  string note = 3 [
+    (validate.rules).string.min_len = 1,
+    (google.api.field_behavior) = REQUIRED
+  ];
+}
+
+message CreateTaskResponse {
+  int64 task_id = 1; // Изменено на int64
+  string message = 2; // Сообщение об успешном создании задачи
+}
+
+message GetTaskRequest {
+  int64 task_id = 1 [
+    (validate.rules).int64.gt = 0,
+    (google.api.field_behavior) = REQUIRED
+  ]; // Изменено на int64
+}
+
+message GetTaskResponse {
+  int64 task_id = 1; // Изменено на int64
+  int64 user_id = 2; // Изменено на int64
+  string title = 3;
+  string note = 4;
+  bool done = 5;
+  string created_at = 6;
+  string updated_at = 7;  // Добавлено поле updated_at
+}
+
+message GetAllTasksResponse {
+  repeated Task tasks = 1;
+}
+
+message Task {
+  int64 task_id = 1; // Изменено на int64
+  int64 user_id = 2; // Изменено на int64
+  string title = 3;
+  string note = 4;
+  bool done = 5;
+  string created_at = 6;
+  string updated_at = 7; // Добавлено поле updated_at
+}
+
+message UpdateTaskRequest {
+  int64 task_id = 1 [
+    (validate.rules).int64.gt = 0,
+    (google.api.field_behavior) = REQUIRED
+  ]; // Изменено на int64
+  string title = 2 [
+    (validate.rules).string.min_len = 1,
+    (google.api.field_behavior) = REQUIRED
+  ];
+  string note = 3 [
+    (validate.rules).string.min_len = 1,
+    (google.api.field_behavior) = REQUIRED
+  ];
+  bool done = 4 [
+    (google.api.field_behavior) = REQUIRED
+  ];
+}
+
+message UpdateTaskResponse {
+  string message = 1;  // Сообщение об успешном обновлении задачи
+}
+
+message DeleteTaskRequest {
+  int64 task_id = 1 [
+    (validate.rules).int64.gt = 0,
+    (google.api.field_behavior) = REQUIRED
+  ]; // Изменено на int64
+}
