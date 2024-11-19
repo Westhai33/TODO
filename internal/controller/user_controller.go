@@ -36,9 +36,14 @@ func GetAllUsers(ctx context.Context, userService *service.UserService) ([]model
 	return users, nil
 }
 
-// UpdateUser обновляет существующего пользователя.
+// UpdateUser обновляет существующего пользователя с проверкой его наличия.
 func UpdateUser(ctx context.Context, userService *service.UserService, userID int64, username string) error {
-	err := userService.UpdateUser(ctx, userID, username)
+	_, err := userService.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("пользователь с ID %d не найден: %w", userID, err)
+	}
+
+	err = userService.UpdateUser(ctx, userID, username)
 	if err != nil {
 		return fmt.Errorf("ошибка обновления пользователя с ID %d: %w", userID, err)
 	}
@@ -46,9 +51,14 @@ func UpdateUser(ctx context.Context, userService *service.UserService, userID in
 	return nil
 }
 
-// DeleteUser удаляет пользователя по его ID.
+// DeleteUser удаляет пользователя по его ID с проверкой его наличия.
 func DeleteUser(ctx context.Context, userService *service.UserService, userID int64) error {
-	err := userService.DeleteUser(ctx, userID)
+	_, err := userService.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("пользователь с ID %d не найден: %w", userID, err)
+	}
+
+	err = userService.DeleteUser(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("ошибка удаления пользователя с ID %d: %w", userID, err)
 	}

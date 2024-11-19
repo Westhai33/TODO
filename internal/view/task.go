@@ -10,7 +10,7 @@ import (
 )
 
 // handleTaskCommands обрабатывает команды, связанные с задачами
-func handleTaskCommands(ctx context.Context, args []string, taskService *service.TaskService) {
+func handleTaskCommands(ctx context.Context, args []string, taskService *service.TaskService, userService *service.UserService) {
 	if len(args) < 1 {
 		printTaskUsage()
 		return
@@ -18,7 +18,7 @@ func handleTaskCommands(ctx context.Context, args []string, taskService *service
 
 	switch args[0] {
 	case "create-task":
-		handleCreateTaskCommand(ctx, args, taskService)
+		handleCreateTaskCommand(ctx, args, taskService, userService)
 	case "get-task":
 		handleGetTaskCommand(ctx, args, taskService)
 	case "get-tasks":
@@ -36,7 +36,7 @@ func printTaskUsage() {
 	fmt.Println("Недостаточно аргументов. Доступные команды: create-task, get-task, get-tasks, update-task, delete-task")
 }
 
-func handleCreateTaskCommand(ctx context.Context, args []string, taskService *service.TaskService) {
+func handleCreateTaskCommand(ctx context.Context, args []string, taskService *service.TaskService, userService *service.UserService) {
 	if len(args) != 4 {
 		fmt.Println("Использование: create-task [userID] [title] [note]")
 		return
@@ -48,7 +48,7 @@ func handleCreateTaskCommand(ctx context.Context, args []string, taskService *se
 		return
 	}
 
-	taskID, err := controller.CreateTask(ctx, taskService, userID, args[2], args[3])
+	taskID, err := controller.CreateTask(ctx, taskService, userService, userID, args[2], args[3])
 	if err != nil {
 		fmt.Printf("Ошибка создания задачи: %v\n", err)
 		return

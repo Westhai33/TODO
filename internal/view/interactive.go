@@ -59,7 +59,7 @@ func handleOtherCommands(ctx context.Context, args []string, taskService *servic
 	case "create-user", "get-user", "get-users", "update-user", "delete-user":
 		handleUserCommands(ctx, args, userService)
 	case "create-task", "get-task", "get-tasks", "update-task", "delete-task":
-		handleTaskCommands(ctx, args, taskService)
+		handleTaskCommands(ctx, args, taskService, userService)
 	default:
 		fmt.Println("Неизвестная команда. Введите 'help' для получения справки.")
 	}
