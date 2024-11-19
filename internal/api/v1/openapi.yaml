@@ -5,7 +5,7 @@ openapi: 3.0.3
 info:
     title: APIService API
     description: APIService для управления пользователями и задачами
-    version: 0.0.1
+    version: 1.0.0
 paths:
     /tasks:
         get:
@@ -403,3 +403,7 @@ components:
                     type: string
 tags:
     - name: APIService
+
+servers:
+  - url: http://localhost:8080
+    description: "Local HTTP Gateway"
