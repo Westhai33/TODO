@@ -32,7 +32,7 @@ func main() {
 
 	userService, taskService := initServices(dbPool, wp)
 
-	view.RunInteractiveMode(ctx, taskService, userService)
+	view.RunInteractiveMode(ctx, taskService, userService, wp)
 
 	log.Println("Система завершила работу")
 }

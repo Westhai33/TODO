@@ -2,6 +2,7 @@ package view
 
 import (
 	"TODO/internal/controller"
+	"TODO/internal/pool"
 	"TODO/internal/service"
 	"context"
 	"fmt"
@@ -9,34 +10,44 @@ import (
 )
 
 // handleUserCommands обрабатывает команды, связанные с пользователями
-func handleUserCommands(ctx context.Context, args []string, userService *service.UserService) {
+func handleUserCommands(ctx context.Context, args []string, userService *service.UserService, workerPool *pool.WorkerPool) {
 	switch args[0] {
 	case "create-user":
 		if len(args) != 2 {
 			fmt.Println("Использование: create-user [username]")
 			return
 		}
-		handleCreateUser(ctx, args[1], userService)
+		workerPool.SubmitTask(func() {
+			handleCreateUser(ctx, args[1], userService)
+		})
 	case "get-user":
 		if len(args) != 2 {
 			fmt.Println("Использование: get-user [userID]")
 			return
 		}
-		handleGetUser(ctx, args[1], userService)
+		workerPool.SubmitTask(func() {
+			handleGetUser(ctx, args[1], userService)
+		})
 	case "get-users":
-		handleGetAllUsers(ctx, userService)
+		workerPool.SubmitTask(func() {
+			handleGetAllUsers(ctx, userService)
+		})
 	case "update-user":
 		if len(args) != 3 {
 			fmt.Println("Использование: update-user [userID] [username]")
 			return
 		}
-		handleUpdateUser(ctx, args[1], args[2], userService)
+		workerPool.SubmitTask(func() {
+			handleUpdateUser(ctx, args[1], args[2], userService)
+		})
 	case "delete-user":
 		if len(args) != 2 {
 			fmt.Println("Использование: delete-user [userID]")
 			return
 		}
-		handleDeleteUser(ctx, args[1], userService)
+		workerPool.SubmitTask(func() {
+			handleDeleteUser(ctx, args[1], userService)
+		})
 	default:
 		fmt.Println("Неизвестная команда для пользователя.")
 	}

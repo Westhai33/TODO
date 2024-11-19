@@ -5,13 +5,15 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
+	"TODO/internal/pool"
 	"TODO/internal/service"
 )
 
 // RunInteractiveMode запускает интерактивный режим управления задачами и пользователями.
-func RunInteractiveMode(ctx context.Context, taskService *service.TaskService, userService *service.UserService) {
+func RunInteractiveMode(ctx context.Context, taskService *service.TaskService, userService *service.UserService, workerPool *pool.WorkerPool) {
 	fmt.Println("Добро пожаловать в систему управления задачами и пользователями!")
 	fmt.Println("Введите 'help' для получения списка команд.")
 	fmt.Println()
@@ -34,12 +36,12 @@ func RunInteractiveMode(ctx context.Context, taskService *service.TaskService, u
 			break
 		}
 
-		handleCommand(ctx, args, taskService, userService)
+		handleCommand(ctx, args, taskService, userService, workerPool)
 	}
 }
 
 // handleCommand обрабатывает введенные команды
-func handleCommand(ctx context.Context, args []string, taskService *service.TaskService, userService *service.UserService) {
+func handleCommand(ctx context.Context, args []string, taskService *service.TaskService, userService *service.UserService, workerPool *pool.WorkerPool) {
 	if len(args) == 0 {
 		fmt.Println("Команда не указана. Введите 'help' для получения справки.")
 		return
@@ -48,18 +50,41 @@ func handleCommand(ctx context.Context, args []string, taskService *service.Task
 	switch args[0] {
 	case "help":
 		printHelp()
+	case "set-workers":
+		handleSetWorkersCommand(ctx, args, workerPool)
 	default:
-		handleOtherCommands(ctx, args, taskService, userService)
+		handleOtherCommands(ctx, args, taskService, userService, workerPool)
 	}
 }
 
+// handleSetWorkersCommand обрабатывает команду изменения количества воркеров
+func handleSetWorkersCommand(ctx context.Context, args []string, workerPool *pool.WorkerPool) {
+	if len(args) != 2 {
+		fmt.Println("Ошибка: Неверное количество аргументов. Используйте: set-workers [количество]")
+		return
+	}
+
+	newWorkerCount, err := strconv.Atoi(args[1])
+	if err != nil {
+		fmt.Println("Ошибка: Неверное значение для количества воркеров.")
+		return
+	}
+
+	workerPool.SetWorkerCount(newWorkerCount)
+	fmt.Printf("Количество воркеров обновлено до: %d\n", newWorkerCount)
+}
+
 // handleOtherCommands обрабатывает команды для пользователей и задач
-func handleOtherCommands(ctx context.Context, args []string, taskService *service.TaskService, userService *service.UserService) {
+func handleOtherCommands(ctx context.Context, args []string, taskService *service.TaskService, userService *service.UserService, workerPool *pool.WorkerPool) {
 	switch args[0] {
 	case "create-user", "get-user", "get-users", "update-user", "delete-user":
-		handleUserCommands(ctx, args, userService)
+		workerPool.SubmitTask(func() {
+			handleUserCommands(ctx, args, userService, workerPool)
+		})
 	case "create-task", "get-task", "get-tasks", "update-task", "delete-task":
-		handleTaskCommands(ctx, args, taskService, userService)
+		workerPool.SubmitTask(func() {
+			handleTaskCommands(ctx, args, taskService, userService, workerPool)
+		})
 	default:
 		fmt.Println("Неизвестная команда. Введите 'help' для получения справки.")
 	}
@@ -81,5 +106,6 @@ func printHelp() {
 	fmt.Println("  update-task [taskID] [title] [note] [done] - Обновить задачу")
 	fmt.Println("  delete-task [taskID] - Удалить задачу")
 	fmt.Println("Системные команды:")
+	fmt.Println("  set-workers [количество] - Изменить количество воркеров")
 	fmt.Println("  exit - Выйти из программы")
 }

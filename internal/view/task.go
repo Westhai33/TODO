@@ -2,6 +2,7 @@ package view
 
 import (
 	"TODO/internal/controller"
+	"TODO/internal/pool"
 	"TODO/internal/service"
 	"context"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 )
 
 // handleTaskCommands обрабатывает команды, связанные с задачами
-func handleTaskCommands(ctx context.Context, args []string, taskService *service.TaskService, userService *service.UserService) {
+func handleTaskCommands(ctx context.Context, args []string, taskService *service.TaskService, userService *service.UserService, workerPool *pool.WorkerPool) {
 	if len(args) < 1 {
 		printTaskUsage()
 		return
@@ -18,15 +19,25 @@ func handleTaskCommands(ctx context.Context, args []string, taskService *service
 
 	switch args[0] {
 	case "create-task":
-		handleCreateTaskCommand(ctx, args, taskService, userService)
+		workerPool.SubmitTask(func() {
+			handleCreateTaskCommand(ctx, args, taskService, userService)
+		})
 	case "get-task":
-		handleGetTaskCommand(ctx, args, taskService)
+		workerPool.SubmitTask(func() {
+			handleGetTaskCommand(ctx, args, taskService)
+		})
 	case "get-tasks":
-		handleGetAllTasksCommand(ctx, taskService)
+		workerPool.SubmitTask(func() {
+			handleGetAllTasksCommand(ctx, taskService)
+		})
 	case "update-task":
-		handleUpdateTaskCommand(ctx, args, taskService)
+		workerPool.SubmitTask(func() {
+			handleUpdateTaskCommand(ctx, args, taskService)
+		})
 	case "delete-task":
-		handleDeleteTaskCommand(ctx, args, taskService)
+		workerPool.SubmitTask(func() {
+			handleDeleteTaskCommand(ctx, args, taskService)
+		})
 	default:
 		fmt.Printf("Неизвестная команда для задач: %s\n", args[0])
 	}
