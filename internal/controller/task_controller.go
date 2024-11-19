@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"TODO/internal/metrics"
 	"TODO/internal/model"
 	"TODO/internal/service"
 	"context"
@@ -18,6 +19,8 @@ func CreateTask(ctx context.Context, taskService *service.TaskService, userServi
 	if err != nil {
 		return 0, fmt.Errorf("ошибка при создании задачи: %w", err)
 	}
+
+	metrics.IncrementTaskCreated("created")
 
 	return taskID, nil
 }
