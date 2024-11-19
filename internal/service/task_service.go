@@ -3,9 +3,9 @@ package service
 import (
 	"TODO/internal/dao"
 	"TODO/internal/model"
+	"TODO/internal/pool"
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -13,65 +13,86 @@ import (
 
 type TaskService struct {
 	pool *pgxpool.Pool
+	wp   *pool.WorkerPool
 }
 
-func NewTaskService(dbPool *pgxpool.Pool) *TaskService {
+func NewTaskService(dbPool *pgxpool.Pool, wp *pool.WorkerPool) *TaskService {
 	return &TaskService{
 		pool: dbPool,
+		wp:   wp,
 	}
 }
 
-// CreateTask создаёт новую задачу
+// CreateTask создаёт новую задачу через общий worker pool
 func (s *TaskService) CreateTask(ctx context.Context, userID int64, title, note string) (int64, error) {
 	var taskID int64
+	errCh := make(chan error, 1)
 
-	newTask := model.Task{
-		UserID:    userID,
-		Title:     title,
-		Note:      note,
-		Done:      false,
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
-	}
+	s.wp.SubmitTask(func() {
+		newTask := model.Task{
+			UserID:    userID,
+			Title:     title,
+			Note:      note,
+			Done:      false,
+			CreatedAt: time.Now().UTC(),
+			UpdatedAt: time.Now().UTC(),
+		}
 
-	// Вставка задачи в базу данных
-	taskID, err := dao.CreateTask(ctx, newTask, s.pool)
-	if err != nil {
-		return 0, fmt.Errorf("ошибка создания задачи: %w", err)
-	}
+		var err error
+		taskID, err = dao.CreateTask(ctx, newTask, s.pool)
+		if err != nil {
+			errCh <- fmt.Errorf("ошибка создания задачи: %w", err)
+			return
+		}
 
-	log.Printf("Создана задача с ID %d", taskID)
-	return taskID, nil
+		errCh <- nil
+	})
+
+	err := <-errCh
+	return taskID, err
 }
 
 // UpdateTask обновляет задачу
 func (s *TaskService) UpdateTask(ctx context.Context, taskID int64, title, note string, done bool) error {
-	task, err := dao.GetTaskByID(ctx, taskID, s.pool)
-	if err != nil {
-		return fmt.Errorf("ошибка получения задачи с ID %d: %w", taskID, err)
-	}
+	errCh := make(chan error, 1)
 
-	task.Title = title
-	task.Note = note
-	task.Done = done
-	task.UpdatedAt = time.Now()
+	s.wp.SubmitTask(func() {
+		task, err := dao.GetTaskByID(ctx, taskID, s.pool)
+		if err != nil {
+			errCh <- fmt.Errorf("ошибка получения задачи с ID %d: %w", taskID, err)
+			return
+		}
 
-	if err := dao.UpdateTask(ctx, *task, s.pool); err != nil {
-		return fmt.Errorf("ошибка обновления данных задачи с ID %d: %w", taskID, err)
-	}
+		task.Title = title
+		task.Note = note
+		task.Done = done
+		task.UpdatedAt = time.Now()
 
-	log.Printf("Обновлена задача с ID %d", taskID)
-	return nil
+		if err := dao.UpdateTask(ctx, *task, s.pool); err != nil {
+			errCh <- fmt.Errorf("ошибка обновления данных задачи с ID %d: %w", taskID, err)
+			return
+		}
+
+		errCh <- nil
+	})
+
+	return <-errCh
 }
 
 // DeleteTask удаляет задачу
 func (s *TaskService) DeleteTask(ctx context.Context, taskID int64) error {
-	if err := dao.DeleteTask(ctx, taskID, s.pool); err != nil {
-		return fmt.Errorf("ошибка удаления задачи с ID %d: %w", taskID, err)
-	}
+	errCh := make(chan error, 1)
 
-	log.Printf("Удалена задача с ID %d", taskID)
-	return nil
+	s.wp.SubmitTask(func() {
+		if err := dao.DeleteTask(ctx, taskID, s.pool); err != nil {
+			errCh <- fmt.Errorf("ошибка удаления задачи с ID %d: %w", taskID, err)
+			return
+		}
+
+		errCh <- nil
+	})
+
+	return <-errCh
 }
 
 // GetTask получает задачу по ID

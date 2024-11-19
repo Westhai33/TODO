@@ -3,6 +3,7 @@ package service
 import (
 	"TODO/internal/dao"
 	"TODO/internal/model"
+	"TODO/internal/pool"
 	"context"
 	"fmt"
 	"log"
@@ -13,30 +14,39 @@ import (
 
 type UserService struct {
 	pool *pgxpool.Pool
+	wp   *pool.WorkerPool
 }
 
-func NewUserService(dbPool *pgxpool.Pool) *UserService {
+func NewUserService(dbPool *pgxpool.Pool, workerPool *pool.WorkerPool) *UserService {
 	return &UserService{
 		pool: dbPool,
+		wp:   workerPool,
 	}
 }
 
-// CreateUser создает нового пользователя
+// CreateUser создает нового пользователя через общий worker pool
 func (s *UserService) CreateUser(ctx context.Context, username string) (int64, error) {
 	var userID int64
+	errCh := make(chan error, 1)
 
-	newUser := model.User{
-		Username:  username,
-		CreatedAt: time.Now().UTC(),
-	}
+	s.wp.SubmitTask(func() {
+		newUser := model.User{
+			Username:  username,
+			CreatedAt: time.Now().UTC(),
+		}
 
-	userID, err := dao.CreateUser(ctx, newUser, s.pool)
-	if err != nil {
-		return 0, fmt.Errorf("ошибка создания пользователя: %w", err)
-	}
+		var err error
+		userID, err = dao.CreateUser(ctx, newUser, s.pool)
+		if err != nil {
+			errCh <- fmt.Errorf("ошибка создания пользователя: %w", err)
+			return
+		}
 
-	log.Printf("Создан новый пользователь с ID %d", userID)
-	return userID, nil
+		errCh <- nil
+	})
+
+	err := <-errCh
+	return userID, err
 }
 
 // GetUserByID возвращает пользователя по его ID
@@ -49,7 +59,7 @@ func (s *UserService) GetUserByID(ctx context.Context, userID int64) (*model.Use
 	return user, nil
 }
 
-// GetAllUsers возвращает всех пользователей
+// GetAllUsers возвращает всех пользователей через worker pool
 func (s *UserService) GetAllUsers(ctx context.Context) ([]model.User, error) {
 	users, err := dao.GetAllUsers(ctx, s.pool)
 	if err != nil {
@@ -62,32 +72,45 @@ func (s *UserService) GetAllUsers(ctx context.Context) ([]model.User, error) {
 
 // UpdateUser обновляет данные пользователя
 func (s *UserService) UpdateUser(ctx context.Context, userID int64, username string) error {
-	user, err := dao.GetUserByID(ctx, userID, s.pool)
-	if err != nil {
-		return fmt.Errorf("ошибка получения пользователя с ID %d: %w", userID, err)
-	}
+	errCh := make(chan error, 1)
 
-	user.Username = username
+	s.wp.SubmitTask(func() {
+		user, err := dao.GetUserByID(ctx, userID, s.pool)
+		if err != nil {
+			errCh <- fmt.Errorf("ошибка получения пользователя с ID %d: %w", userID, err)
+			return
+		}
 
-	if err := dao.UpdateUser(ctx, *user, s.pool); err != nil {
-		return fmt.Errorf("ошибка обновления данных пользователя с ID %d: %w", userID, err)
-	}
+		user.Username = username
 
-	log.Printf("Пользователь с ID %d был обновлен", userID)
-	return nil
+		if err := dao.UpdateUser(ctx, *user, s.pool); err != nil {
+			errCh <- fmt.Errorf("ошибка обновления данных пользователя с ID %d: %w", userID, err)
+			return
+		}
+
+		errCh <- nil
+	})
+
+	return <-errCh
 }
 
 // DeleteUser удаляет пользователя
 func (s *UserService) DeleteUser(ctx context.Context, userID int64) error {
-	if err := dao.DeleteUser(ctx, userID, s.pool); err != nil {
-		return fmt.Errorf("ошибка удаления пользователя с ID %d: %w", userID, err)
-	}
+	errCh := make(chan error, 1)
 
-	log.Printf("Пользователь с ID %d удален", userID)
-	return nil
+	s.wp.SubmitTask(func() {
+		if err := dao.DeleteUser(ctx, userID, s.pool); err != nil {
+			errCh <- fmt.Errorf("ошибка удаления пользователя с ID %d: %w", userID, err)
+			return
+		}
+
+		errCh <- nil
+	})
+
+	return <-errCh
 }
 
-// GetUserNameByID возвращает имя пользователя по его ID
+// GetUserNameByID возвращает имя пользователя по его ID через worker pool
 func (s *UserService) GetUserNameByID(ctx context.Context, userID int64) (string, error) {
 	username, err := dao.GetUserNameByID(ctx, userID, s.pool)
 	if err != nil {
